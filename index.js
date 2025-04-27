@@ -90,6 +90,8 @@ app.post("/logout", (req, res) => {
   res.cookie("token", "", { httpOnly: true, secure: true, sameSite: 'None' }).json("ok");
 });
 
+const cloudinary = require("./cloudinary");
+
 app.post("/post", uploadMiddleware.single("file"), async (req, res) => {
   const { token } = req.cookies;
   if (!token) {
@@ -101,22 +103,36 @@ app.post("/post", uploadMiddleware.single("file"), async (req, res) => {
       return res.status(401).json({ error: "Invalid or expired token" });
     }
 
-    const { originalname, path } = req.file;
-    const parts = originalname.split(".");
-    const ext = parts[parts.length - 1];
-    const newPath = path + "." + ext;
-    fs.renameSync(path, newPath);
+    
+    const { file, body: { title, summary, content } } = req;
+    
+    if (file) {
+      try {
+        // Upload the image to Cloudinary
+        const uploadResponse = await cloudinary.uploader.upload(file.path, {
+          folder: "blog_posts", // Folder name in Cloudinary (optional)
+          use_filename: true,    // Retain the original filename
+          unique_filename: false // Do not generate a random filename
+        });
 
-    const { title, summary, content } = req.body;
-    const postDoc = await Post.create({
-      title,
-      summary,
-      content,
-      cover: newPath,
-      author: info.id,
-    });
+        // Create a new post in the database with the Cloudinary image URL
+        const postDoc = await Post.create({
+          title,
+          summary,
+          content,
+          cover: uploadResponse.secure_url,  // Save the Cloudinary image URL
+          author: info.id,
+        });
 
-    res.json(postDoc);
+        // Respond with the created post document
+        res.json(postDoc);
+      } catch (uploadErr) {
+        console.error(uploadErr);
+        res.status(500).json({ error: "Error uploading image to Cloudinary" });
+      }
+    } else {
+      res.status(400).json({ error: "No file provided" });
+    }
   });
 });
 
