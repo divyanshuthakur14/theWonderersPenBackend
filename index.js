@@ -95,15 +95,26 @@ app.post("/logout", (req, res) => {
 });
 
 app.post("/post", uploadMiddleware.single("file"), async (req, res) => {
-  const { originalname, path } = req.file;
-  const parts = originalname.split(".");
-  const ext = parts[parts.length - 1];
-  const newPath = path + "." + ext;
-  fs.renameSync(path, newPath);
-
+  // Ensure token is provided
   const { token } = req.cookies;
+  if (!token) {
+    return res.status(401).json({ error: "JWT token must be provided" });
+  }
+
+  // Token verification
   jwt.verify(token, secret, {}, async (err, info) => {
-    if (err) throw err;
+    if (err) {
+      return res.status(401).json({ error: "Invalid or expired token" });
+    }
+
+    // Handle file upload
+    const { originalname, path } = req.file;
+    const parts = originalname.split(".");
+    const ext = parts[parts.length - 1];
+    const newPath = path + "." + ext;
+    fs.renameSync(path, newPath);
+
+    // Handle post creation
     const { title, summary, content } = req.body;
     const postDoc = await Post.create({
       title,
@@ -112,9 +123,12 @@ app.post("/post", uploadMiddleware.single("file"), async (req, res) => {
       cover: newPath,
       author: info.id,
     });
+
+    // Return created post
     res.json(postDoc);
   });
 });
+
 
 app.put("/post", uploadMiddleware.single("file"), async (req, res) => {
   let newPath = null;
