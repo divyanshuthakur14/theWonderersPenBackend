@@ -3,7 +3,7 @@ const cors = require("cors");
 const mongoose = require("mongoose");
 const User = require("./models/User");
 const Post = require("./models/Post");
-const Contact = require("./models/Contact"); // Import the Contact model
+const Contact = require("./models/Contact");
 const bcrypt = require("bcryptjs");
 const app = express();
 const jwt = require("jsonwebtoken");
@@ -33,25 +33,19 @@ mongoose
 app.post("/register", async (req, res) => {
   try {
     const { username, password } = req.body;
-    try {
-      const userDoc = await User.create({
-        username,
-        password: bcrypt.hashSync(password, salt),
-      });
-      res.json(userDoc);
-    } catch (e) {
-      console.log(e);
-      res.status(400).json(e);
-    }
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Internal Server Error" });
+    const userDoc = await User.create({
+      username,
+      password: bcrypt.hashSync(password, salt),
+    });
+    res.json(userDoc);
+  } catch (e) {
+    console.log(e);
+    res.status(400).json(e);
   }
 });
 
 app.post("/login", async (req, res) => {
   const { username, password } = req.body;
-  console.log(req.body);
   const userDoc = await User.findOne({ username });
   if (!userDoc) {
     return res.status(400).json("wrong credentials");
@@ -68,7 +62,7 @@ app.post("/login", async (req, res) => {
           console.error(err);
           return res.status(500).json({ error: "Error signing JWT token" });
         }
-        res.cookie("token", token).json({
+        res.cookie("token", token, { httpOnly: true, secure: true, sameSite: 'None' }).json({
           id: userDoc._id,
           username,
         });
@@ -81,40 +75,38 @@ app.post("/login", async (req, res) => {
 
 app.get("/profile", (req, res) => {
   const { token } = req.cookies;
+  if (!token) {
+    return res.status(401).json({ error: "JWT token must be provided" });
+  }
   jwt.verify(token, secret, {}, (err, info) => {
     if (err) {
-      console.error(err);
-      return res.status(401).json({ error: "Invalid token" });
+      return res.status(401).json({ error: "Invalid or expired token" });
     }
     res.json(info);
   });
 });
 
 app.post("/logout", (req, res) => {
-  res.cookie("token", "").json("ok");
+  res.cookie("token", "", { httpOnly: true, secure: true, sameSite: 'None' }).json("ok");
 });
 
 app.post("/post", uploadMiddleware.single("file"), async (req, res) => {
-  // Ensure token is provided
   const { token } = req.cookies;
   if (!token) {
     return res.status(401).json({ error: "JWT token must be provided" });
   }
-
-  // Token verification
+  
   jwt.verify(token, secret, {}, async (err, info) => {
     if (err) {
       return res.status(401).json({ error: "Invalid or expired token" });
     }
 
-    // Handle file upload
     const { originalname, path } = req.file;
     const parts = originalname.split(".");
     const ext = parts[parts.length - 1];
     const newPath = path + "." + ext;
     fs.renameSync(path, newPath);
 
-    // Handle post creation
     const { title, summary, content } = req.body;
     const postDoc = await Post.create({
       title,
@@ -124,11 +116,9 @@ app.post("/post", uploadMiddleware.single("file"), async (req, res) => {
       author: info.id,
     });
 
-    // Return created post
     res.json(postDoc);
   });
 });
-
 
 app.put("/post", uploadMiddleware.single("file"), async (req, res) => {
   let newPath = null;
@@ -176,19 +166,14 @@ app.get("/post/:id", async (req, res) => {
   res.json(postDoc);
 });
 
-
-
-// Contact Form Submission Route
 app.post("/contact", async (req, res) => {
   try {
     const { name, email, message } = req.body;
 
-    // Validate that all fields are provided
     if (!name || !email || !message) {
       return res.status(400).json({ error: "All fields are required" });
     }
 
-    // Create a new Contact document
     const newContact = await Contact.create({
       name,
       email,
@@ -205,8 +190,6 @@ app.post("/contact", async (req, res) => {
   }
 });
 
-
-// Start the server
 const PORT = process.env.PORT || 4000;
 
 app.listen(PORT, () => {
