@@ -149,13 +149,31 @@ app.put("/post", uploadMiddleware.single("file"), async (req, res) => {
 });
 
 app.get("/post", async (req, res) => {
-  res.json(
-    await Post.find()
+  try {
+    const search = req.query.search;
+
+    const query = search
+      ? {
+          $or: [
+            { title: { $regex: search, $options: "i" } },
+            { summary: { $regex: search, $options: "i" } },
+            { content: { $regex: search, $options: "i" } },
+          ],
+        }
+      : {};
+
+    const posts = await Post.find(query)
       .populate("author", ["username"])
       .sort({ createdAt: -1 })
-      .limit(20)
-  );
+      .limit(20);
+
+    res.json(posts);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Failed to fetch posts" });
+  }
 });
+
 
 app.get("/post/:id", async (req, res) => {
   const { id } = req.params;
