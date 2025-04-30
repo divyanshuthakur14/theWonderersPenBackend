@@ -67,7 +67,12 @@ app.post("/login", async (req, res) => {
           console.error(err);
           return res.status(500).json({ error: "Error signing JWT token" });
         }
-        res.cookie("token", token).json({
+        res.cookie("token", token, {
+          httpOnly: true,
+          secure: true,
+          sameSite: "None"
+        }).json({
+        
           id: userDoc._id,
           username,
         });
