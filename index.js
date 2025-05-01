@@ -16,7 +16,7 @@ const salt = bcrypt.genSaltSync(10);
 const defaultkey = "asdfe45we45w345wegw345werjktjwertkj";
 const secret = process.env.SECRET || defaultkey;
 
-app.use(cors({ credentials: true, origin: "https://verdant-entremet-80d954.netlify.app" }));
+app.use(cors({ credentials: true, origin: "https://thewondererspen.netlify.app" }));
 app.use(express.json());
 app.use(cookieParser());
 app.use("/uploads", express.static(__dirname + "/uploads"));
