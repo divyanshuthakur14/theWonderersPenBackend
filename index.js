@@ -295,6 +295,7 @@ app.post("/google-login", async (req, res) => {
         googleId: userId,
         username: payload.email, // You could customize this depending on your app's requirements
         isVerified: true, // Set to true or implement your own verification logic
+        password: "google-oauth", // dummy password or random string
       });
       await user.save();
     }
