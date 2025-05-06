@@ -277,37 +277,45 @@ app.post("/google-login", async (req, res) => {
   const { token } = req.body;
 
   try {
-    // Verify the Google token using the OAuth2Client
     const ticket = await client.verifyIdToken({
       idToken: token,
-      audience: "711705450735-eo1aa8fjnjts6cbgmhqn61hmgqkmajcd.apps.googleusercontent.com", // Make sure this matches the client ID you are using
+      audience: "711705450735-eo1aa8fjnjts6cbgmhqn61hmgqkmajcd.apps.googleusercontent.com",
     });
 
     const payload = ticket.getPayload();
-    const userId = payload.sub; // The unique Google ID for the user
+    const userId = payload.sub;
 
-    // Check if the user already exists in the database
+    // Try finding user by Google ID
     let user = await User.findOne({ googleId: userId });
 
+    // If not found by Google ID, try finding by email (username)
     if (!user) {
-      // If not, create a new user
+      user = await User.findOne({ username: payload.email });
+
+      // If found by email but has no Google ID, update that user
+      if (user && !user.googleId) {
+        user.googleId = userId;
+        await user.save();
+      }
+    }
+
+    // If still no user, create one
+    if (!user) {
       user = new User({
         googleId: userId,
-        username: payload.email, // You could customize this depending on your app's requirements
-        isVerified: true, // Set to true or implement your own verification logic
-        password: "google-oauth", // dummy password or random string
+        username: payload.email,
+        isVerified: true,
+        password: "google-oauth",
       });
       await user.save();
     }
 
-    // Generate a JWT for the user
     const tokenForUser = jwt.sign(
       { username: user.username, id: user._id },
       secret,
       { expiresIn: "1h" }
     );
 
-    // Send the token as a response to the frontend
     res.cookie("token", tokenForUser, {
       httpOnly: true,
       secure: true,
@@ -316,11 +324,13 @@ app.post("/google-login", async (req, res) => {
       id: user._id,
       username: user.username,
     });
+
   } catch (error) {
     console.error(error);
     res.status(400).json({ message: "Google login failed. Please try again." });
   }
 });
+
 
 
 
