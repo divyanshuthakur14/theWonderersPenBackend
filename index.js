@@ -271,7 +271,7 @@ app.get("/verify", async (req, res) => {
 
 
 const { OAuth2Client } = require('google-auth-library');
-const client = new OAuth2Client(711705450735-eo1aa8fjnjts6cbgmhqn61hmgqkmajcd.apps.googleusercontent.com);
+const client = new OAuth2Client("711705450735-eo1aa8fjnjts6cbgmhqn61hmgqkmajcd.apps.googleusercontent.com");
 
 app.post("/google-login", async (req, res) => {
   const { token } = req.body;
