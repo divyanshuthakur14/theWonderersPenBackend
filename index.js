@@ -58,7 +58,8 @@ mongoose
       });
   
       // Verification email link
-      const verificationLink = `${process.env.CLIENT_URL}/verify?token=${token}`;
+      const verificationLink = `https://thewondererspen.netlify.app/verify?token=${token}`;
+
   
       // Send the email
       await transporter.sendMail({
@@ -265,6 +266,58 @@ app.get("/verify", async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Error verifying email." });
+  }
+});
+
+
+const { OAuth2Client } = require('google-auth-library');
+const client = new OAuth2Client(711705450735-eo1aa8fjnjts6cbgmhqn61hmgqkmajcd.apps.googleusercontent.com);
+
+app.post("/google-login", async (req, res) => {
+  const { token } = req.body;
+
+  try {
+    // Verify the Google token using the OAuth2Client
+    const ticket = await client.verifyIdToken({
+      idToken: token,
+      audience: 711705450735-eo1aa8fjnjts6cbgmhqn61hmgqkmajcd.apps.googleusercontent.com, // Make sure this matches the client ID you are using
+    });
+
+    const payload = ticket.getPayload();
+    const userId = payload.sub; // The unique Google ID for the user
+
+    // Check if the user already exists in the database
+    let user = await User.findOne({ googleId: userId });
+
+    if (!user) {
+      // If not, create a new user
+      user = new User({
+        googleId: userId,
+        username: payload.email, // You could customize this depending on your app's requirements
+        isVerified: true, // Set to true or implement your own verification logic
+      });
+      await user.save();
+    }
+
+    // Generate a JWT for the user
+    const tokenForUser = jwt.sign(
+      { username: user.username, id: user._id },
+      secret,
+      { expiresIn: "1h" }
+    );
+
+    // Send the token as a response to the frontend
+    res.cookie("token", tokenForUser, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "None",
+    }).json({
+      id: user._id,
+      username: user.username,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(400).json({ message: "Google login failed. Please try again." });
   }
 });
 
