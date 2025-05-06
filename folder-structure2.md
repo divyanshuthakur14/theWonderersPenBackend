@@ -1,5 +1,9 @@
 ```
 └── 📁server
+    └── 📁middleware
+        └── multer.js
+    └── 📁utils
+        └── cloudinary.js
     └── .gitignore
     └── folder-structure2.md
     └── package.json

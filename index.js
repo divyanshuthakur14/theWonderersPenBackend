@@ -5,13 +5,14 @@ const User = require("./models/User");
 const Post = require("./models/Post");
 const Contact = require("./models/Contact"); 
 const bcrypt = require("bcryptjs");
-const app = express();
 const jwt = require("jsonwebtoken");
 const cookieParser = require("cookie-parser");
+const nodemailer = require("nodemailer");
 const uploadMiddleware = require("./middleware/multer");
 const fs = require("fs");
 require("dotenv").config();
 
+const app = express();
 const salt = bcrypt.genSaltSync(10);
 const defaultkey = "asdfe45we45w345wegw345werjktjwertkj";
 const secret = process.env.SECRET || defaultkey;
@@ -30,24 +31,52 @@ mongoose
   .then(() => console.log("Connected to MongoDB"))
   .catch((err) => console.log(err));
 
-app.post("/register", async (req, res) => {
-  try {
+  app.post("/register", async (req, res) => {
     const { username, password } = req.body;
+  
     try {
+      // Hash the password
+      const hashedPassword = bcrypt.hashSync(password, salt);
+  
+      // Create user with isVerified: false
       const userDoc = await User.create({
         username,
-        password: bcrypt.hashSync(password, salt),
+        password: hashedPassword,
+        isVerified: false,  // Add isVerified flag
       });
-      res.json(userDoc);
-    } catch (e) {
-      console.log(e);
-      res.status(400).json(e);
+  
+      // Generate a JWT token for email verification
+      const token = jwt.sign({ id: userDoc._id }, secret, { expiresIn: "1h" });
+  
+      // Set up Nodemailer transporter
+      const transporter = nodemailer.createTransport({
+        service: "gmail",
+        auth: {
+          user: process.env.EMAIL_USER,    // your Gmail
+          pass: process.env.EMAIL_PASS,    // Gmail app password
+        },
+      });
+  
+      // Verification email link
+      const verificationLink = `${process.env.CLIENT_URL}/verify?token=${token}`;
+  
+      // Send the email
+      await transporter.sendMail({
+        from: `"No-Reply" <${process.env.EMAIL_USER}>`,
+        to: username,   // assuming username is the email address
+        subject: "Verify Your Email",
+        html: `<p>Click <a href="${verificationLink}">here</a> to verify your email.</p>`,
+      });
+  
+      // Respond to the client
+      res.status(201).json({ message: "Registration successful. Please verify your email." });
+  
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error registering user." });
     }
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Internal Server Error" });
-  }
-});
+  });
+  
 
 app.post("/login", async (req, res) => {
   const { username, password } = req.body;
@@ -210,6 +239,36 @@ app.post("/contact", async (req, res) => {
     res.status(500).json({ error: "An error occurred while submitting the contact form." });
   }
 });
+
+// Add the email verification route here
+app.get("/verify", async (req, res) => {
+  const { token } = req.query;
+
+  if (!token) {
+    return res.status(400).json({ message: "Token is required." });
+  }
+
+  try {
+    const decoded = jwt.verify(token, secret);
+    const userId = decoded.id;
+
+    const userDoc = await User.findById(userId);
+
+    if (!userDoc) {
+      return res.status(404).json({ message: "User not found." });
+    }
+
+    userDoc.isVerified = true;
+    await userDoc.save();
+
+    res.status(200).json({ message: "Email verified successfully!" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Error verifying email." });
+  }
+});
+
+
 
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
