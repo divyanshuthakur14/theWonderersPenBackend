@@ -35,20 +35,19 @@ mongoose
     const { username, password } = req.body;
   
     try {
-      // Hash the password
+     
       const hashedPassword = bcrypt.hashSync(password, salt);
   
-      // Create user with isVerified: false
+      
       const userDoc = await User.create({
         username,
         password: hashedPassword,
-        isVerified: false,  // Add isVerified flag
+        isVerified: false, 
       });
   
-      // Generate a JWT token for email verification
       const token = jwt.sign({ id: userDoc._id }, secret, { expiresIn: "1h" });
   
-      // Set up Nodemailer transporter
+      
       const transporter = nodemailer.createTransport({
         service: "gmail",
         auth: {
