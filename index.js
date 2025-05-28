@@ -268,6 +268,25 @@ app.get("/verify", async (req, res) => {
   }
 });
 
+app.delete("/contact", async (req, res) => {
+  try {
+    const { email } = req.query;
+    if (!email) {
+      return res.status(400).json({ error: "Email query parameter is required" });
+    }
+
+    const deletedContact = await Contact.findOneAndDelete({ email });
+    if (!deletedContact) {
+      return res.status(404).json({ error: "Contact not found" });
+    }
+
+    res.status(200).json({ message: "Contact deleted successfully", contact: deletedContact });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Failed to delete contact" });
+  }
+});
+
 
 const { OAuth2Client } = require('google-auth-library');
 const client = new OAuth2Client("711705450735-eo1aa8fjnjts6cbgmhqn61hmgqkmajcd.apps.googleusercontent.com");
